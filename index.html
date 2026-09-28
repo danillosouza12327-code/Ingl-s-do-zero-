@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Inglês do Zero</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1b2140;--mu:#6b7394;--pr:#4f46e5;--ac:#10b981;--wa:#f59e0b;--rd:#ef4444;--bd:#e4e8f3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1226;--card:#1a1f3d;--tx:#eef0ff;--mu:#9aa1c7;--bd:#2a3060}}
+:root[data-theme=dark]{--bg:#0f1226;--card:#1a1f3d;--tx:#eef0ff;--mu:#9aa1c7;--bd:#2a3060}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.4}
+#app{max-width:520px;margin:0 auto;padding:16px 16px 90px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;margin:12px 0}
+.hero{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:0}
+h1{font-size:24px;margin:4px 0}h2{font-size:18px;margin:4px 0}p{margin:6px 0}.mu{color:var(--mu);font-size:14px}
+button,.btn{font:inherit;border:0;border-radius:14px;padding:13px 16px;background:var(--pr);color:#fff;font-weight:700;width:100%;cursor:pointer;margin:6px 0}
+button.sec{background:transparent;color:var(--pr);border:2px solid var(--pr)}button.sm{width:auto;padding:6px 10px;font-size:13px;margin:2px}
+button.op{background:var(--card);color:var(--tx);border:2px solid var(--bd);text-align:left}
+button.ok{background:#d1fae5;color:#065f46;border-color:var(--ac)}button.no{background:#fee2e2;color:#991b1b;border-color:var(--rd)}
+input,select,textarea{font:inherit;width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin:5px 0}
+.bar{height:10px;background:var(--bd);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac);transition:width .5s}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between}.stats{display:flex;gap:8px}.stats div{flex:1;background:rgba(255,255,255,.18);border-radius:12px;padding:8px;text-align:center;font-size:13px}
+.en{font-size:19px;font-weight:700}.pron{color:var(--wa);font-size:14px}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav div{display:flex;max-width:520px;width:100%}nav a{flex:1;text-align:center;padding:9px 0;font-size:11px;color:var(--mu);cursor:pointer}nav a b{display:block;font-size:20px}nav a.on{color:var(--pr);font-weight:700}
+.lock{opacity:.55}.tag{background:var(--pr);color:#fff;border-radius:8px;padding:2px 8px;font-size:12px}
+.pop{animation:p .5s}@keyframes p{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+table{width:100%;font-size:13px;border-collapse:collapse}td,th{padding:6px 3px;border-bottom:1px solid var(--bd);text-align:left}
+</style></head><body><div id="app"></div><nav id="nav"></nav>
+<script>
+let L=[];
+const $=s=>document.querySelector(s),S=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},W=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let U=[];
+let me=null,tab='home',st={},claude_sample=null;
+function td(o=0){let d=new Date(Date.now()+o*864e5);return d.toISOString().slice(0,10)}
+const save=()=>api('/api/me','PUT',{xp:me.xp,lvl:me.lvl,done:me.done,rev:me.rev,days:me.days}),hasAcc=u=>u.plan==='premium'&&u.st==='ativo'&&u.exp>=td();
+function streak(u){let n=0;while(u.days.includes(td(-n)))n++;return n}
+function sp(t){try{speechSynthesis.cancel();let s=new SpeechSynthesisUtterance(t);s.lang='en-US';s.rate=.85;speechSynthesis.speak(s)}catch(e){}}
+async function go(t){tab=t;st={};if(t==='admin'&&me&&me.adm){let r=await api('/api/admin/users');U=r.users||[]}draw()}
+function celebrate(m){$('#app').insertAdjacentHTML('afterbegin',`<div class="card hero pop">🎉 ${m}</div>`)}
+async function api(p,m='GET',b){try{let r=await fetch(p,{method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+(localStorage.getItem('izT')||'')},body:b?JSON.stringify(b):undefined});let j=await r.json().catch(()=>({}));if(r.status==401&&me){localStorage.removeItem('izT');me=null;draw()}return{ok:r.ok,...j}}catch(e){return{ok:false,error:'Sem conexão.'}}}
+async function init(){if(localStorage.getItem('izT')){let m=await api('/api/me');if(m.ok){me=m.user;let l=await api('/api/lessons');L=l.lessons||[];if(me.adm)tab='admin'}}await go(tab);hashMode()}
+function nav(){$('#nav').innerHTML=me?`<div>${[['home','🏠','Início'],['course','📚','Curso'],['prac','🎯','Praticar'],['talk','🗣️','Conversação'],['prof','👤','Perfil']].map(x=>`<a class="${tab==x[0]?'on':''}" onclick="go('${x[0]}')"><b>${x[1]}</b>${x[2]}</a>`).join('')}</div>`:''}
+function draw(){nav();let h='';if(!me||st.mode==='pw')h=auth();else if(!st.lesson&&!me.lvl&&!me.adm)h=placement();else h=({home,course,prac,talk,prof,admin})[tab]();$('#app').innerHTML=h;scrollTo(0,0)}
+function auth0(){return`<div class="card hero"><h1>Inglês do Zero 🇧🇷➜🇺🇸</h1><p>Aprenda inglês do absoluto zero, no seu ritmo, pelo celular.</p></div><div class="card"><h2>${st.reg?'Criar conta grátis':'Entrar'}</h2>
+${st.reg?'<input id=n placeholder="Seu nome"><input id=w placeholder="WhatsApp">':''}<input id=e type=email placeholder="E-mail"><input id=p type=password placeholder="Senha"><p class="mu" id=msg></p>
+<button onclick="${st.reg?'reg()':'login()'}">${st.reg?'Cadastrar':'Entrar'}</button><button class="sec" onclick="st.reg=!st.reg;draw()">${st.reg?'Já tenho conta':'Criar conta grátis'}</button><button class="sec" onclick="st.mode='forgot';draw()">Esqueci minha senha</button>
+</div>`}
+async function login(){let r=await api('/api/login','POST',{e:$('#e').value.trim().toLowerCase(),p:$('#p').value});if(!r.ok)return $('#msg').textContent=r.error||'Erro.';await enter(r)}
+async function enter(r){localStorage.setItem('izT',r.token);me=r.user;let l=await api('/api/lessons');L=l.lessons||[];go(me.adm?'admin':'home')}
+async function reg(){let n=$('#n').value.trim(),e=$('#e').value.trim().toLowerCase(),p=$('#p').value;if(!n||!e||p.length<6)return $('#msg').textContent='Preencha nome, e-mail e senha (mín. 6).';let r=await api('/api/register','POST',{n,e,p,w:$('#w').value});if(!r.ok)return $('#msg').textContent=r.error||'Erro.';await enter(r)}
+const PT=[['Como se diz "Olá" em inglês?',['Hello','Thanks','Goodbye'],0],['O que significa "Thank you"?',['Desculpe','Obrigado','Tchau'],1],['Complete: I ___ Brazilian.',['is','are','am'],2],['"Do you speak English?" significa:',['Você fala inglês?','Eu falo inglês','Onde fica?'],0]];
+function placement(){let i=st.pi||0;if(i>=PT.length){let s=st.ps||0,lv=s<=1?'INICIANTE':s<=3?'BÁSICO':'INTERMEDIÁRIO';return`<div class="card hero pop"><h2>Seu nível atual: ${lv}</h2><p>Recomendamos começar pela aula 1 — Cumprimentos.</p></div><button onclick="me.lvl='${lv}';me.zero=0;save();st={};go('home')">Começar recomendação</button><button class="sec" onclick="me.lvl='INICIANTE';save();go('home')">Começar do absoluto zero</button>`}
+let q=PT[i];return`<div class="card hero"><h2>Teste de nível</h2><p class="mu" style="color:#e0e7ff">Pergunta ${i+1} de ${PT.length}</p></div><div class="card"><h2>${q[0]}</h2>${q[1].map((o,j)=>`<button class="op" onclick="st.ps=(st.ps||0)+(${j}==${q[2]}?1:0);st.pi=${i+1};draw()">${o}</button>`).join('')}<button class="sec" onclick="me.lvl='INICIANTE';save();go('home')">Pular: começar do zero</button></div>`}
+function home(){let n=streak(me),next=L.findIndex((_,i)=>!me.done.includes(i)),due=me.rev.length;
+return`<h1>Olá, ${me.n.split(' ')[0]}! 👋</h1><p class="mu">Vamos aprender inglês hoje?</p>
+<div class="card hero"><div class="stats"><div>🔥<br><b>${n} dias</b></div><div>⭐<br><b>${me.xp} XP</b></div><div>📚<br><b>${me.done.length}/${L.length}</b></div></div><p>🎯 Meta diária: 1 aula</p><div class="bar"><i style="width:${me.done.length/L.length*100}%"></i></div>
+${next>=0?`<button style="background:#fff;color:#4f46e5" onclick="open_(${next})">CONTINUAR AULA</button><p class="mu" style="color:#e0e7ff">Aula atual: ${L[next][2]}</p>`:'<p>🏆 Você concluiu todas as aulas!</p>'}</div>
+<div class="card row"><div><h2>🔁 Revisão do dia</h2><p class="mu">${due} item(ns) para revisar</p></div><button class="sm" onclick="go('prac')">Revisar</button></div>
+<div class="card row"><div><h2>⚡ Desafio diário</h2><p class="mu">Ganhe +20 XP praticando</p></div><button class="sm" onclick="go('prac')">Ir</button></div>
+<p class="mu" style="text-align:center">Você está evoluindo! 🚀</p>`}
+function course(){let h='<h1>Curso</h1>',m='';L.forEach((l,i)=>{if(l[1]!==m){m=l[1];h+=`<h2 style="margin-top:18px">Módulo ${l[0]} — ${m}</h2>`}let lk=!l[3];h+=`<div class="card row ${lk?'lock':''}" onclick="open_(${i})"><div><b>Aula ${i+1}: ${l[2]}</b><p class="mu">${me.done.includes(i)?'✅ Concluída':lk?'🔒 Premium':i<3?'Grátis':'Disponível'}</p></div>›</div>`});return h}
+function open_(i){if(!L[i][3]){st={paywall:1};tab='prof';return draw()}st={lesson:i,step:0,qi:0,sc:0};tab='course';drawL()}
+function drawL(){let i=st.lesson,l=L[i],w=l[3],app=$('#app');nav();
+if(st.step==0){app.innerHTML=`<button class="sm sec" onclick="go('course')">‹ Voltar</button><div class="card hero"><h2>Aula ${i+1}: ${l[2]}</h2><p>🎯 Objetivo: aprender e falar ${w.length} expressões novas.</p></div><p class="mu">⚠️ A pronúncia aproximada é só um auxílio para brasileiros e não substitui a pronúncia real (use 🔊).</p>`+w.map(x=>`<div class="card"><div class="row"><div><div class="en">${x[0]}</div><div>🇧🇷 ${x[1]}</div><div class="pron">🗣️ ${x[2]}</div></div><button class="sm" onclick="sp('${x[0].replace(/'/g,"")}')">🔊 Ouvir</button></div></div>`).join('')+`<div class="card"><b>Ouça → Repita → Compare → Tente novamente.</b></div><button onclick="st.step=1;drawL()">Ir para o quiz ›</button>`;return}
+if(st.qi<w.length){let q=w[st.qi],ops=[q[0]];L.flatMap(x=>x[3]||[]).filter(x=>x[0]!==q[0]).sort(()=>Math.random()-.5).slice(0,2).forEach(x=>ops.push(x[0]));st.ops=st.ops&&st.opq===st.qi?st.ops:ops.sort(()=>Math.random()-.5);st.opq=st.qi;
+app.innerHTML=`<div class="bar"><i style="width:${st.qi/w.length*100}%"></i></div><div class="card"><p class="mu">Quiz ${st.qi+1}/${w.length}</p><h2>Como se diz "${q[1]}" em inglês?</h2>${st.ops.map(o=>`<button class="op" onclick="ans(this,'${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}<div id=fb></div></div>`;return}
+let xp=10+st.sc*5;if(!st.paid){st.paid=1;me.xp+=xp;if(!me.done.includes(i))me.done.push(i);if(!me.days.includes(td()))me.days.push(td());save()}
+app.innerHTML=`<div class="card hero pop"><h1>🎉 Aula concluída!</h1><p>Você acertou ${st.sc}/${w.length} • +${xp} XP</p><p>Mais uma aula concluída! Seu inglês está ficando cada vez melhor.</p></div><div class="card"><b>Revisão:</b> os itens errados voltarão na aba Praticar (hoje, amanhã e em alguns dias).</div>${i+1<L.length?`<button onclick="open_(${i+1})">Próxima aula ›</button>`:''}<button class="sec" onclick="go('home')">Voltar ao início</button>`}
+function ans(b,o){let w=L[st.lesson][3],q=w[st.qi],okk=o===q[0];document.querySelectorAll('.op').forEach(x=>x.disabled=true);b.classList.add(okk?'ok':'no');if(okk)st.sc++;else if(!me.rev.find(r=>r[0]===q[0])){me.rev.push([q[0],q[1],q[2],td(),td(1),td(4)]);save()}
+$('#fb').innerHTML=`<p>${okk?'✅ Muito bem!':'❌ Resposta: <b>'+q[0]+'</b>'}</p><button onclick="st.qi++;drawL()">Continuar ›</button>`;sp(q[0])}
+function prac(){let d=me.rev;let h='<h1>Praticar</h1>';if(!d.length)return h+'<div class="card">🎉 Nada para revisar! Complete aulas — o que você errar volta aqui automaticamente.</div>';
+let r=d[0];h+=`<div class="card"><p class="mu">Revisão • ${d.length} item(ns) • hoje, amanhã e em alguns dias</p><h2>${r[1]}</h2>${st.show?`<div class="en">${r[0]}</div><div class="pron">${r[2]}</div><button class="sm" onclick="sp('${r[0]}')">🔊 Ouvir</button><button onclick="me.rev.shift();me.xp+=5;save();st={};draw()">Acertei ✅ (+5 XP)</button><button class="sec" onclick="me.rev.push(me.rev.shift());save();st={};draw()">Errei, repetir depois</button>`:`<p class="mu">Tente lembrar em inglês…</p><button onclick="st.show=1;draw()">Mostrar resposta</button>`}</div>`;return h}
+function talk(){if(!hasAcc(me))return`<h1>Fale Inglês 🗣️</h1><div class="card lock"><h2>🔒 Recurso Premium</h2><p>Converse com o Professor Alex e receba correções simples em português.</p></div><button onclick="go('prof')">Ver plano Premium</button>`;
+let sit=['Restaurante','Aeroporto','Hotel','Trabalho','Compras','Conversa casual','Viagem'];
+if(!st.sit)return`<h1>Fale Inglês 🗣️</h1><p class="mu">Escolha uma situação:</p>`+sit.map(s=>`<button class="op" onclick="st.sit='${s}';st.log='';draw();startTalk()">${s}</button>`).join('');
+return`<h1>${st.sit}</h1><button class="sm sec" onclick="st={};draw()">‹ Trocar</button><div class="card" id=log style="white-space:pre-wrap">${st.log||'Professor Alex está preparando…'}</div><textarea id=ans rows=2 placeholder="Responda em inglês…"></textarea><button onclick="sendTalk()">Enviar</button>`}
+async function ask(p){let r=await api('/api/ai','POST',{prompt:p});return r.ok?r.text:(r.error||'Professor Alex indisponível.')}
+async function startTalk(){let t=await ask(`Situação: ${st.sit}. Faça UMA pergunta curta em inglês (com tradução em português) para o aluno responder.`);st.log=t;let e=$('#log');if(e)e.textContent=t}
+async function sendTalk(){let a=$('#ans').value;if(!a)return;st.log+='\n\n🧑 Você: '+a+'\n\n⏳ Professor Alex…';$('#log').textContent=st.log;let t=await ask(`Situação: ${st.sit}. Pergunta anterior: ${st.log.slice(0,300)}. Resposta do aluno: "${a}". Diga: 1) o que estava correto, 2) o que melhorar, 3) resposta mais natural. Depois faça a próxima pergunta em inglês.`);st.log=st.log.replace('⏳ Professor Alex…','🎓 Alex: '+t);me.xp+=5;save();draw()}
+function prof(){if(st.paywall)st.paywall=0;let n=streak(me),med=[[me.done.length>=1,'🥇 1ª aula'],[me.done.length>=5,'🏅 5 aulas'],[n>=3,'🔥 3 dias'],[me.xp>=100,'⭐ 100 XP']].filter(x=>x[0]).map(x=>x[1]);
+return`<h1>Perfil</h1><div class="card"><div class="row"><div><h2>👤 ${me.n}</h2><p class="mu">${me.e}</p></div><span class="tag">${me.lvl||'INICIANTE'}</span></div><p>⭐ ${me.xp} XP • 🔥 ${n} dias • 📚 ${me.done.length}/${L.length} aulas</p><div class="bar"><i style="width:${me.done.length/L.length*100}%"></i></div><p>🏅 Medalhas: ${med.join(' ')||'ainda nenhuma — bora!'}</p></div>
+<div class="card"><h2>Plano: ${hasAcc(me)?'⭐ Premium':'Gratuito'}</h2>${hasAcc(me)?`<p class="mu">Válido até ${me.exp}</p>`:`<p>Desbloqueie todos os níveis, conversação, Professor Alex, revisões e desafios.</p><p class="en">Premium — R$ 29,90/mês</p><button onclick="buy(me.n,me.e)">💳 Assinar agora (Pix ou cartão)</button><p class="mu">Acesso liberado automaticamente após o pagamento.</p>`}</div>
+${me.adm?'<button onclick="go(\'admin\')">Painel administrativo</button>':''}<button class="sec" onclick="me=null;localStorage.removeItem('izT');tab='home';draw()">Sair</button>`}
+function admin(){if(!me.adm)return prof();let a=U.filter(u=>!u.adm),at=a.filter(u=>u.st==='ativo'),ex=a.filter(u=>u.exp<td(7)&&u.plan==='premium'),pm=a.length?Math.round(a.reduce((s,u)=>s+u.done.length,0)/a.length/L.length*100):0;
+return`<h1>Painel Admin</h1><div class="card"><div class="stats" style="color:var(--tx)"><div>👥<br><b>${a.length}</b><br>alunos</div><div>✅<br><b>${at.length}</b><br>ativos</div><div>⭐<br><b>${a.filter(hasAcc).length}</b><br>premium</div><div>📈<br><b>${pm}%</b><br>progresso</div></div><p class="mu">⏰ Expirando em 7 dias: ${ex.length}</p></div>
+<div class="card"><h2>Liberar / cadastrar aluno</h2><input id=an placeholder="Nome"><input id=aw placeholder="WhatsApp"><input id=ae placeholder="E-mail"><input id=ap placeholder="Senha inicial"><select id=apl><option value=premium>Premium</option><option value=gratis>Gratuito</option></select><input id=ax type=date value="${td(30)}"><button onclick="addS()">Cadastrar e liberar</button></div>
+<div class="card"><h2>Alunos</h2><table><tr><th>Nome</th><th>Plano</th><th>Vence</th><th></th></tr>${a.map((u,i)=>`<tr><td>${u.n}<br><span class="mu">${u.w||u.e}</span></td><td>${u.plan}</td><td>${u.exp==='2099-12-31'?'-':u.exp}</td><td><button class="sm" onclick="tg('${u.e}','${u.st==='ativo'?'bloqueado':'ativo'}')">${u.st==='ativo'?'Bloquear':'Liberar'}</button><button class="sm sec" onclick="pr('${u.e}')">${u.plan==='premium'?'→Grátis':'→Premium'}</button></td></tr>`).join('')||'<tr><td colspan=4>Nenhum aluno ainda.</td></tr>'}</table></div>
+<div class="card"><h2>Aulas mais concluídas</h2>${L.map((l,i)=>[l[2],a.filter(u=>u.done.includes(i)).length]).sort((x,y)=>y[1]-x[1]).slice(0,4).map(x=>`<p>${x[0]}: <b>${x[1]}</b></p>`).join('')}</div>`}
+async function addS(){let r=await api('/api/admin/users','POST',{n:$('#an').value,w:$('#aw').value,e:$('#ae').value.trim().toLowerCase(),p:$('#ap').value,plan:$('#apl').value,exp:$('#ax').value});if(!r.ok)return alert(r.error||'Erro');go('admin')}
+async function tg(e,s){await api('/api/admin/users','PATCH',{e,st:s});go('admin')}
+async function pr(e){let u=U.find(x=>x.e===e),pl=u.plan==='premium'?'gratis':'premium';await api('/api/admin/users','PATCH',{e,plan:pl,exp:pl==='premium'&&u.exp<td()?td(30):u.exp});go('admin')}
+function auth(){let M=st.mode,x=(a,b,c)=>`<div class="card hero"><h1>${a}</h1><p>${b}</p></div><div class="card">${c}<p class="mu" id=msg></p></div>`;
+if(M==='paid')return x('Pagamento recebido! 🎉','Enviamos um e-mail com o link para criar sua senha. Depois é só entrar.',`<button onclick="location.hash='';st={};draw()">Ir para o login</button>`);
+if(M==='pw')return x('Crie sua senha 🔐','Escolha uma senha para acessar o Inglês do Zero.',`<input id=p type=password placeholder="Nova senha (mín. 6)"><button onclick="setPw()">Salvar e entrar</button>`);
+if(M==='buy')return x('Inglês do Zero Premium ⭐','Todas as aulas, conversação com Professor Alex, revisões e desafios. Pague por Pix ou cartão e receba o acesso por e-mail na hora.',`<input id=bn placeholder="Seu nome"><input id=be type=email placeholder="Seu melhor e-mail"><button onclick="buy()">Ir para o pagamento ›</button><button class="sec" onclick="location.href='/'">Já tenho conta</button>`);
+if(M==='forgot')return x('Recuperar senha','Informe seu e-mail e enviaremos um link.',`<input id=e type=email placeholder="E-mail"><button onclick="forgot()">Enviar link</button><button class="sec" onclick="st={};draw()">Voltar</button>`);
+return auth0()}
+function hashMode(){let h=location.hash;if(h.startsWith('#senha='))st={mode:'pw',t:h.slice(7)};else if(location.pathname==='/comprar'&&!me)st={mode:'buy'};else if(h==='#pago'&&!me)st={mode:'paid'};else return;draw()}
+async function buy(n,e){n=n||$('#bn').value;e=e||$('#be').value;let r=await api('/api/buy','POST',{n,e});if(r.url)location.href=r.url;else alert(r.error||'Erro')}
+async function forgot(){await api('/api/forgot','POST',{e:$('#e').value});$('#msg').textContent='Se o e-mail existir, enviamos o link. Confira sua caixa de entrada.'}
+async function setPw(){let r=await api('/api/set-password','POST',{t:st.t,p:$('#p').value});if(!r.ok)return $('#msg').textContent=r.error||'Erro';location.hash='';await enter(r)}
+init();
+</script></body></html>
