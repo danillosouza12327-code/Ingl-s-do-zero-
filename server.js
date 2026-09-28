@@ -2,7 +2,7 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {DatabaseSync}=require('node:sqlite');
 const D=process.env.DATA_DIR||path.join(__dirname,'data');fs.mkdirSync(D,{recursive:true});
-const PORT=process.env.PORT||3000,KEY=process.env.ANTHROPIC_API_KEY,FREE=3;
+const PORT=process.env.PORT||3000,GK=process.env.GEMINI_API_KEY,GMODEL=process.env.GEMINI_MODEL||'gemini-2.5-flash-lite',GBASE=(process.env.GEMINI_API_BASE||'https://generativelanguage.googleapis.com').replace(/\/$/,''),FREE=3;
 const LESSONS=JSON.parse(fs.readFileSync(path.join(__dirname,'lessons.json')));
 let SECRET=process.env.SECRET;if(!SECRET){const f=path.join(D,'secret');if(!fs.existsSync(f))fs.writeFileSync(f,crypto.randomBytes(32).toString('hex'),{mode:0o600});SECRET=fs.readFileSync(f,'utf8')}
 const db=new DatabaseSync(path.join(D,'app.db'));
@@ -17,7 +17,7 @@ const access=u=>u.plan==='premium'&&u.st==='ativo'&&u.exp>=td();
 const byId=id=>db.prepare('SELECT * FROM users WHERE id=?').get(id),byE=e=>db.prepare('SELECT * FROM users WHERE e=?').get(e);
 const mk=(n,w,e,p,plan,exp,adm=0)=>db.prepare('INSERT INTO users(n,w,e,pw,plan,ini,exp,adm) VALUES(?,?,?,?,?,?,?,?)').run(n,w||'',e,hash(p),plan,td(),exp||'2099-12-31',adm);
 if(!db.prepare('SELECT 1 FROM users WHERE adm=1').get()){const e=process.env.ADMIN_EMAIL||'admin@ingleszero.com',p=process.env.ADMIN_PASSWORD||crypto.randomBytes(6).toString('hex');mk('Administrador','',e,p,'premium',null,1);console.log(`ADMIN criado: ${e} / ${p}  (anote e troque)`)}
-const fails=new Map();
+const fails=new Map(),aiUse=new Map(),SYSAI="Você é o Professor Alex, professor de inglês simpático e paciente para brasileiros. Conduza conversas em inglês simples, adequadas ao nível do aluno (iniciante: frases curtas e palavras fáceis), sempre com UMA pergunta por vez para o aluno continuar. Responda de forma natural ao que o aluno disse. Se o aluno escrever em inglês com erros, comece com a correção neste formato exato:\n✏️ Você escreveu: <frase do aluno>\n✅ Forma correta: <frase corrigida>\n💡 Explicação: <uma frase curta em português>\nDepois continue a conversa em inglês. Se não houver erros, elogie em uma frase curta e continue. Se o aluno escrever em português, ajude a dizer em inglês e peça para repetir. Explicações sempre em português simples, sem termos técnicos. Seja breve e incentive o aluno.";
 const APP=(process.env.APP_URL||'http://localhost:'+PORT).replace(/\/$/,''),MP=process.env.MP_ACCESS_TOKEN,MPB=process.env.MP_API||'https://api.mercadopago.com',PRICE=+(process.env.PRICE||29.9),DAYS=+(process.env.DAYS||30);
 db.exec('CREATE TABLE IF NOT EXISTS payments(id TEXT PRIMARY KEY,uid INTEGER,at TEXT)');
 const esc=x=>String(x).replace(/[<>&"]/g,'');
@@ -53,8 +53,14 @@ const server=http.createServer(async(req,res)=>{
  if(p==='/api/me'&&m==='PUT'){const ok=access(u),o=pub(u);const done=(Array.isArray(b.done)?b.done:[]).filter(i=>Number.isInteger(i)&&i>=0&&i<LESSONS.length&&(i<FREE||ok));const xp=Math.min(Math.max(0,+b.xp||0),o.xp+200);const rev=(Array.isArray(b.rev)?b.rev:[]).slice(0,200).map(r=>r.slice(0,6).map(x=>String(x).slice(0,120)));const days=(Array.isArray(b.days)?b.days:[]).slice(-400).map(String);
   db.prepare('UPDATE users SET xp=?,lvl=?,done=?,rev=?,days=? WHERE id=?').run(xp,String(b.lvl||'').slice(0,20),JSON.stringify(done),JSON.stringify(rev),JSON.stringify(days),u.id);return send(200,{})}
  if(p==='/api/lessons'&&m==='GET'){const ok=access(u);return send(200,{lessons:LESSONS.map((l,i)=>[l[0],l[1],l[2],(i<FREE||ok)?l[3]:null])})}
- if(p==='/api/ai'&&m==='POST'){if(!access(u))return send(403,{error:'Recurso Premium.'});if(!KEY)return send(503,{error:'Professor Alex ainda não configurado (ANTHROPIC_API_KEY).'});
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':KEY,'anthropic-version':'2023-06-01','content-type':'application/json'},body:JSON.stringify({model:'claude-sonnet-5',max_tokens:600,system:'Você é o Professor Alex, professor de inglês para brasileiros iniciantes. Responda em português simples, curto e animado, sem termos técnicos. Incentive o aluno.',messages:[{role:'user',content:String(b.prompt||'').slice(0,1500)}]})});const j=await r.json();return send(200,{text:(j.content&&j.content[0]&&j.content[0].text)||'Tente de novo.'})}
+ if(p==='/api/ai'&&m==='POST'){if(!access(u))return send(403,{error:'Recurso Premium.'});if(!GK)return send(503,{error:'Professor Alex ainda não configurado (falta a variável GEMINI_API_KEY no servidor).'});
+  const a=aiUse.get(u.id)||{n:0,t:Date.now()};if(Date.now()-a.t>36e5){a.n=0;a.t=Date.now()}if(++a.n>60)return send(429,{error:'Limite de mensagens por hora atingido. Volte daqui a pouco!'});aiUse.set(u.id,a);
+  const hist=(Array.isArray(b.history)?b.history:[]).slice(-12).map(x=>({role:x&&x.role==='model'?'model':'user',parts:[{text:String((x&&x.text)||'').slice(0,1500)}]}));while(hist.length&&hist[0].role==='model')hist.shift();
+  const contents=[...hist,{role:'user',parts:[{text:String(b.prompt||'').slice(0,1500)}]}];
+  let r,j;try{r=await fetch(GBASE+'/v1beta/models/'+encodeURIComponent(GMODEL)+':generateContent',{method:'POST',headers:{'x-goog-api-key':GK,'content-type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:SYSAI}]},contents,generationConfig:{maxOutputTokens:1000,temperature:.7}})});j=await r.json()}catch(e){console.error('gemini falhou',e);return send(502,{error:'Não consegui falar com o Professor Alex agora. Tente de novo.'})}
+  if(!r.ok){console.error('gemini erro',r.status,j&&j.error&&j.error.message);return send(r.status===429?429:502,{error:r.status===429?'Muitos alunos usando agora. Tente de novo em 1 minuto.':(r.status===400||r.status===403)?'O Professor Alex está indisponível (verifique GEMINI_API_KEY e o modelo).':'Professor Alex indisponível no momento.'})}
+  const text=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(x=>x.text||'').join('').trim();
+  return text?send(200,{text}):send(200,{text:'Não consegui responder essa. Tente reformular, por favor.'})}
  if(p.startsWith('/api/admin/')){if(!u.adm)return send(403,{error:'Somente administrador.'});
   if(p==='/api/admin/users'&&m==='GET')return send(200,{users:db.prepare('SELECT * FROM users WHERE adm=0 ORDER BY id DESC').all().map(pub)});
   if(p==='/api/admin/users'&&m==='POST'){const e=String(b.e||'').toLowerCase().trim();if(!b.n||!validE(e))return send(400,{error:'Nome e e-mail válido são obrigatórios.'});if(byE(e))return send(409,{error:'E-mail já cadastrado.'});mk(String(b.n).slice(0,80),String(b.w||'').slice(0,30),e,b.p||crypto.randomBytes(4).toString('hex'),b.plan==='premium'?'premium':'gratis',b.exp||td(30));return send(200,{})}
